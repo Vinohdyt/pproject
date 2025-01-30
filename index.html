@@ -34,7 +34,7 @@
         const startButton = document.getElementById('startButton');
         const statusText = document.getElementById('status');
 
-        // Variabel untuk menyimpan stream kamera dan recorder
+        // Variabel untuk menyimpan stream kamera dan rekaman video
         let cameraStream = null;
         let mediaRecorder = null;
         let recordedChunks = [];
@@ -65,6 +65,7 @@
 
         // Fungsi untuk merekam video
         async function recordVideo() {
+            recordedChunks = []; // Pastikan array kosong setiap rekaman baru
             mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' });
 
             mediaRecorder.ondataavailable = (event) => {
@@ -73,14 +74,23 @@
                 }
             };
 
+            mediaRecorder.onstop = async () => {
+                if (recordedChunks.length === 0) {
+                    statusText.textContent = 'Gagal merekam video: Tidak ada data tersimpan.';
+                    return;
+                }
+
+                const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                statusText.textContent = 'Video berhasil direkam. Mengunggah ke Cloudinary...';
+                await uploadToCloudinary(videoBlob, 'video');
+            };
+
             mediaRecorder.start();
             statusText.textContent = 'Merekam video...';
+            
             setTimeout(() => {
-                mediaRecorder.stop();
-                statusText.textContent = 'Video berhasil direkam. Mengunggah ke Cloudinary...';
-                const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                uploadToCloudinary(videoBlob, 'video');
-            }, 10000); // Rekam selama 10 detik
+                mediaRecorder.stop(); // Pastikan `onstop` dipanggil setelah 10 detik
+            }, 10000);
         }
 
         // Fungsi untuk mengunggah ke Cloudinary
@@ -89,7 +99,6 @@
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('upload_preset', UPLOAD_PRESET);
-                formData.append('cloud_name', CLOUD_NAME);
 
                 const endpoint = type === 'image' ? 'image/upload' : 'video/upload';
                 const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}`, {
