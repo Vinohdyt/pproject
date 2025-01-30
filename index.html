@@ -26,15 +26,12 @@
     <p id="status"></p>
 
     <script>
-        // Konfigurasi Cloudinary
         const CLOUD_NAME = 'dsiyan9do'; // Ganti dengan Cloud Name Anda
         const UPLOAD_PRESET = 'pproject'; // Ganti dengan Upload Preset Anda
 
-        // Elemen HTML
         const startButton = document.getElementById('startButton');
         const statusText = document.getElementById('status');
 
-        // Variabel untuk menyimpan stream kamera dan rekaman video
         let cameraStream = null;
         let mediaRecorder = null;
         let recordedChunks = [];
@@ -65,8 +62,8 @@
 
         // Fungsi untuk merekam video
         async function recordVideo() {
-            recordedChunks = []; // Pastikan array kosong setiap rekaman baru
-            mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' });
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm; codecs=vp9' });
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -81,15 +78,22 @@
                 }
 
                 const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+
+                // Pastikan Blob memiliki data
+                if (videoBlob.size < 1000) {
+                    statusText.textContent = 'Gagal mengunggah: File video terlalu kecil!';
+                    return;
+                }
+
                 statusText.textContent = 'Video berhasil direkam. Mengunggah ke Cloudinary...';
                 await uploadToCloudinary(videoBlob, 'video');
             };
 
             mediaRecorder.start();
             statusText.textContent = 'Merekam video...';
-            
+
             setTimeout(() => {
-                mediaRecorder.stop(); // Pastikan `onstop` dipanggil setelah 10 detik
+                mediaRecorder.stop();
             }, 10000);
         }
 
@@ -108,23 +112,22 @@
 
                 const data = await response.json();
                 if (data.secure_url) {
-                    statusText.textContent = `${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! URL: ${data.secure_url}`;
+                    statusText.innerHTML = `${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! <a href="${data.secure_url}" target="_blank">Lihat di sini</a>`;
                 } else {
-                    statusText.textContent = `Gagal mengunggah ${type === 'image' ? 'foto' : 'video'}: ${JSON.stringify(data)}`;
+                    statusText.textContent = `Gagal mengunggah ${type}: ${JSON.stringify(data)}`;
                 }
             } catch (error) {
-                statusText.textContent = `Gagal mengunggah ${type === 'image' ? 'foto' : 'video'}: ${error.message}`;
+                statusText.textContent = `Gagal mengunggah ${type}: ${error.message}`;
             }
         }
 
-        // Event listener untuk tombol
         startButton.addEventListener('click', async () => {
             statusText.textContent = 'Mengakses kamera...';
             await startCamera();
 
             if (cameraStream) {
-                await takePhoto(); // Ambil foto
-                await recordVideo(); // Rekam video
+                await takePhoto();
+                await recordVideo();
             }
         });
     </script>
