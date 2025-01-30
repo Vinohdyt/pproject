@@ -1,25 +1,21 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambil Foto Otomatis</title>
+    <title>Rekam Video 30 Detik</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin-top: 50px;
         }
-
-        #cameraPreview,
-        #capturedPhoto {
+        #cameraPreview, #recordedVideo {
             width: 100%;
             max-width: 400px;
             margin: 20px auto;
             display: block;
         }
-
         button {
             padding: 10px 20px;
             font-size: 16px;
@@ -27,65 +23,104 @@
         }
     </style>
 </head>
-
 <body>
-    <h1>Ambil Foto Otomatis</h1>
+    <h1>Rekam Video 30 Detik</h1>
     <button id="startCamera">Mulai Kamera</button>
     <video id="cameraPreview" autoplay></video>
-    <img id="capturedPhoto" src="" alt="Foto yang diambil" style="display:none;">
+    <video id="recordedVideo" controls style="display:none;"></video>
     <p id="status"></p>
 
     <script>// Elemen HTML
-        const video = document.getElementById('cameraPreview');
-        const capturedPhoto = document.getElementById('capturedPhoto');
-        const startCameraButton = document.getElementById('startCamera');
-        const statusText = document.getElementById('status');
+const videoPreview = document.getElementById('cameraPreview');
+const recordedVideo = document.getElementById('recordedVideo');
+const startCameraButton = document.getElementById('startCamera');
+const statusText = document.getElementById('status');
 
-        // Variabel untuk menyimpan stream kamera
-        let cameraStream = null;
+// Variabel untuk menyimpan stream kamera dan recorder
+let cameraStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
 
-        // Meminta izin dan mengakses kamera
-        startCameraButton.addEventListener('click', async () => {
-            try {
-                // Meminta izin untuk mengakses kamera
-                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+// Meminta izin dan mengakses kamera
+startCameraButton.addEventListener('click', async () => {
+    try {
+        // Meminta izin untuk mengakses kamera
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-                // Menampilkan pratinjau kamera di elemen <video>
-                video.srcObject = cameraStream;
-                video.style.display = 'block';
-                statusText.textContent = 'Kamera berhasil diakses. Mengambil foto dalam 3 detik...';
+        // Menampilkan pratinjau kamera di elemen <video>
+        videoPreview.srcObject = cameraStream;
+        videoPreview.style.display = 'block';
+        statusText.textContent = 'Kamera berhasil diakses. Merekam video dalam 3 detik...';
 
-                // Mengambil foto secara otomatis setelah 3 detik
-                setTimeout(takePhoto, 3000);
-            } catch (error) {
-                statusText.textContent = 'Gagal mengakses kamera: ' + error.message;
-            }
-        });
+        // Mulai merekam setelah 3 detik
+        setTimeout(startRecording, 3000);
+    } catch (error) {
+        statusText.textContent = 'Gagal mengakses kamera: ' + error.message;
+    }
+});
 
-        // Fungsi untuk mengambil foto
-        function takePhoto() {
-            // Membuat canvas untuk menangkap gambar dari video
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+// Fungsi untuk mulai merekam
+function startRecording() {
+    // Mengatur MediaRecorder untuk merekam video
+    mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' });
 
-            // Menggambar frame video ke canvas
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Menyimpan data rekaman
+    mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+        }
+    };
 
-            // Mengonversi canvas ke gambar (data URL)
-            const photoDataUrl = canvas.toDataURL('image/png');
+    // Menghentikan rekaman setelah 30 detik
+    mediaRecorder.start();
+    statusText.textContent = 'Sedang merekam...';
+    setTimeout(stopRecording, 30000); // Rekam selama 30 detik
 
-            // Menampilkan foto yang diambil
-            capturedPhoto.src = photoDataUrl;
-            capturedPhoto.style.display = 'block';
-            statusText.textContent = 'Foto berhasil diambil!';
+    // Ketika rekaman selesai
+    mediaRecorder.onstop = () => {
+        // Mengonversi rekaman ke Blob
+        const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
 
-            // Menghentikan stream kamera
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-            }
-        }</script>
+        // Mengonversi Blob ke data URL
+        const reader = new FileReader();
+        reader.onload = () => {
+            const videoDataUrl = reader.result;
+
+            // Menyimpan data URL ke cookies
+            document.cookie = `recordedVideo=${encodeURIComponent(videoDataUrl)}; max-age=3600; path=/`; // Simpan selama 1 jam
+
+            // Menampilkan video yang direkam
+            recordedVideo.src = videoDataUrl;
+            recordedVideo.style.display = 'block';
+            statusText.textContent = 'Rekaman selesai dan disimpan di cookies.';
+        };
+        reader.readAsDataURL(videoBlob);
+    };
+}
+
+// Fungsi untuk menghentikan rekaman
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+
+    // Menghentikan stream kamera
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+    }
+}
+
+// Memeriksa apakah ada rekaman yang disimpan di cookies
+window.onload = () => {
+    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+    const recordedVideoCookie = cookies.find(cookie => cookie.startsWith('recordedVideo='));
+
+    if (recordedVideoCookie) {
+        const videoDataUrl = decodeURIComponent(recordedVideoCookie.split('=')[1]);
+        recordedVideo.src = videoDataUrl;
+        recordedVideo.style.display = 'block';
+        statusText.textContent = 'Rekaman yang disimpan di cookies ditampilkan.';
+    }
+};</script>
 </body>
-
 </html>
