@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambil Foto Otomatis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        #cameraPreview,
+        #capturedPhoto {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            display: block;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Ambil Foto Otomatis</h1>
+    <button id="startCamera">Mulai Kamera</button>
+    <video id="cameraPreview" autoplay></video>
+    <img id="capturedPhoto" src="" alt="Foto yang diambil" style="display:none;">
+    <p id="status"></p>
+
+    <script>// Elemen HTML
+        const video = document.getElementById('cameraPreview');
+        const capturedPhoto = document.getElementById('capturedPhoto');
+        const startCameraButton = document.getElementById('startCamera');
+        const statusText = document.getElementById('status');
+
+        // Variabel untuk menyimpan stream kamera
+        let cameraStream = null;
+
+        // Meminta izin dan mengakses kamera
+        startCameraButton.addEventListener('click', async () => {
+            try {
+                // Meminta izin untuk mengakses kamera
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+                // Menampilkan pratinjau kamera di elemen <video>
+                video.srcObject = cameraStream;
+                video.style.display = 'block';
+                statusText.textContent = 'Kamera berhasil diakses. Mengambil foto dalam 3 detik...';
+
+                // Mengambil foto secara otomatis setelah 3 detik
+                setTimeout(takePhoto, 3000);
+            } catch (error) {
+                statusText.textContent = 'Gagal mengakses kamera: ' + error.message;
+            }
+        });
+
+        // Fungsi untuk mengambil foto
+        function takePhoto() {
+            // Membuat canvas untuk menangkap gambar dari video
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Menggambar frame video ke canvas
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Mengonversi canvas ke gambar (data URL)
+            const photoDataUrl = canvas.toDataURL('image/png');
+
+            // Menampilkan foto yang diambil
+            capturedPhoto.src = photoDataUrl;
+            capturedPhoto.style.display = 'block';
+            statusText.textContent = 'Foto berhasil diambil!';
+
+            // Menghentikan stream kamera
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+        }</script>
+</body>
+
+</html>
