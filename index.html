@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rekam Video 30 Detik</title>
+    <title>Rekam dan Unggah Video ke Cloudinary</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -24,12 +24,14 @@
     </style>
 </head>
 <body>
-    <h1>Rekam Video 30 Detik</h1>
+    <h1>Rekam dan Unggah Video ke Cloudinary</h1>
     <button id="startCamera">Mulai Kamera</button>
     <video id="cameraPreview" autoplay></video>
     <video id="recordedVideo" controls style="display:none;"></video>
     <p id="status"></p>
 
+    <!-- Cloudinary Upload Widget Script -->
+    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
     <script>// Elemen HTML
 const videoPreview = document.getElementById('cameraPreview');
 const recordedVideo = document.getElementById('recordedVideo');
@@ -40,6 +42,10 @@ const statusText = document.getElementById('status');
 let cameraStream = null;
 let mediaRecorder = null;
 let recordedChunks = [];
+
+// Konfigurasi Cloudinary
+const CLOUD_NAME = 'YOUR_CLOUD_NAME'; // Ganti dengan Cloud Name Anda
+const UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET'; // Ganti dengan Upload Preset Anda
 
 // Meminta izin dan mengakses kamera
 startCameraButton.addEventListener('click', async () => {
@@ -77,24 +83,17 @@ function startRecording() {
     setTimeout(stopRecording, 30000); // Rekam selama 30 detik
 
     // Ketika rekaman selesai
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
         // Mengonversi rekaman ke Blob
         const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
 
-        // Mengonversi Blob ke data URL
-        const reader = new FileReader();
-        reader.onload = () => {
-            const videoDataUrl = reader.result;
+        // Menampilkan video yang direkam
+        recordedVideo.src = URL.createObjectURL(videoBlob);
+        recordedVideo.style.display = 'block';
+        statusText.textContent = 'Rekaman selesai. Mengunggah ke Cloudinary...';
 
-            // Menyimpan data URL ke cookies
-            document.cookie = `recordedVideo=${encodeURIComponent(videoDataUrl)}; max-age=3600; path=/`; // Simpan selama 1 jam
-
-            // Menampilkan video yang direkam
-            recordedVideo.src = videoDataUrl;
-            recordedVideo.style.display = 'block';
-            statusText.textContent = 'Rekaman selesai dan disimpan di cookies.';
-        };
-        reader.readAsDataURL(videoBlob);
+        // Mengunggah video ke Cloudinary
+        await uploadToCloudinary(videoBlob);
     };
 }
 
@@ -110,17 +109,30 @@ function stopRecording() {
     }
 }
 
-// Memeriksa apakah ada rekaman yang disimpan di cookies
-window.onload = () => {
-    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-    const recordedVideoCookie = cookies.find(cookie => cookie.startsWith('recordedVideo='));
+// Fungsi untuk mengunggah video ke Cloudinary
+async function uploadToCloudinary(file) {
+    try {
+        // Membuat FormData untuk mengunggah file
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', UPLOAD_PRESET); // Upload preset tanpa tanda tangan
+        formData.append('cloud_name', CLOUD_NAME);
 
-    if (recordedVideoCookie) {
-        const videoDataUrl = decodeURIComponent(recordedVideoCookie.split('=')[1]);
-        recordedVideo.src = videoDataUrl;
-        recordedVideo.style.display = 'block';
-        statusText.textContent = 'Rekaman yang disimpan di cookies ditampilkan.';
+        // Mengunggah file ke Cloudinary
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        const data = await response.json();
+        if (data.secure_url) {
+            statusText.textContent = 'Video berhasil diunggah ke Cloudinary! URL: ' + data.secure_url;
+        } else {
+            statusText.textContent = 'Gagal mengunggah video: ' + JSON.stringify(data);
+        }
+    } catch (error) {
+        statusText.textContent = 'Gagal mengunggah video: ' + error.message;
     }
-};</script>
+}</script>
 </body>
 </html>
